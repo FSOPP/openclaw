@@ -1,0 +1,86 @@
+{
+	"servers": {
+		// "mcp-server-time": {
+		// 	"command": "python",
+		// 	"args": [
+		// 		"-m",
+		// 		"mcp_server_time",
+		// 		"--local-timezone=America/Los_Angeles"
+		// 	],
+		// 	"env": {},
+		// 	"type": "stdio"
+		// },
+		// Archived , consider migrate to MCP Toolbox
+		// "postgres": {
+		// 	"command": "npx",
+		// 	"args": [
+		// 		"-y",
+		// 		"@modelcontextprotocol/server-postgres",
+		// 		"postgresql://postgres:YourStrong!Passw0rd@localhost/advanced_postgres_db"
+		// 	]
+		// },
+    // Deprecated - migrate to use MCP toolbox
+		// "postgres123": {
+		// 	"command": "npx",
+		// 	"args": [
+		// 		"-y",
+		// 		"@modelcontextprotocol/server-postgres",
+		// 		"postgresql://localhost:5432/appdb"
+		// 	],
+		// 	"type": "stdio"
+		// },
+		"my-mcp-server-56909eed": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-memory"
+			]
+		},
+    // "postgres": {
+    //   "command": "toolbox",
+    //   "args": ["--prebuilt","postgres","--stdio"],
+    //   "env": {
+    //     "POSTGRES_HOST": "localhost",
+    //     "POSTGRES_PORT": "5432",
+    //     "POSTGRES_DATABASE": "advanced_postgres_db",
+    //     "POSTGRES_USER": "postgres",
+    //     "POSTGRES_PASSWORD": "YourStrong!Passw0rd"
+    //   }
+    // },
+		// "devdb-mcp-server": {
+		// 	"command": "node",
+		// 	"args": [
+		// 		"/home/tuanna47/.vscode-server/extensions/damms005.devdb-2.8.8/dist/services/mcp/server.js"
+		// 	]
+		// },
+		// "mssql": {
+    //   "command": "python",
+    //   "args": ["-m", "mssql_mcp_server"],
+    //   "env": { 
+		// 		"MSSQL_SERVER": "localhost",          
+		// 		"MSSQL_DATABASE": "CATS",
+		// 		"MSSQL_USER":"sa",
+		// 		"MSSQL_PASSWORD":"P@ssw0rd@D5"
+		// 	 }
+    // },
+		"serena":{
+			"command": "uv",
+			"args": [
+				"run",
+				"--directory",
+				"/home/tuanna47/workspace/MCP/serena",
+				"serena",
+				"start-mcp-server"
+			]
+		}
+	},
+	"inputs": [
+    // Deprecated , this use for postgres old MCP 
+		// {
+		// 	"type": "promptString",
+		// 	"id": "pg_url",
+		// 	"description": "PostgreSQL URL (e.g. postgresql://user:pass@localhost:5432/mydb)"
+		// }
+	]
+}
