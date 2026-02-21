@@ -1,200 +1,112 @@
 # Data Model: Spec from Project — `/speckit.discover`
 
-**Date**: 2026-02-20  
+**Date**: 2026-02-21  
 **Branch**: `001-spec-from-project`
 
-## Entities
+## Core Entities
 
-### 1. DiscoverSetup
+### 1. DiscoverRun
 
-The output of the `setup-discover.sh` initialization script, providing resolved
-paths and state for the discover agent.
+Execution context for a single discover invocation.
 
-| Field           | Type                     | Description                                                        |
-| --------------- | ------------------------ | ------------------------------------------------------------------ |
-| `FEATURE_DIR`   | `string` (absolute path) | Specs directory for the current feature branch (`specs/<branch>/`) |
-| `SPEC_FILE`     | `string` (absolute path) | Target output path for generated `spec.md`                         |
-| `SPEC_TEMPLATE` | `string` (absolute path) | Path to `.specify/templates/spec-template.md`                      |
-| `TARGET_PATH`   | `string` (absolute path) | Root directory of the project to analyze                           |
-| `SPEC_EXISTS`   | `"true" \| "false"`      | Whether `spec.md` already exists at `SPEC_FILE`                    |
-| `BRANCH`        | `string`                 | Current branch name (e.g., `001-spec-from-project`)                |
-| `HAS_GIT`       | `"true" \| "false"`      | Whether the workspace is a git repository                          |
+| Field             | Type      | Description                                        |
+| ----------------- | --------- | -------------------------------------------------- |
+| `featureDir`      | `string`  | Absolute specs directory (`specs/<branch>/`)       |
+| `specFile`        | `string`  | Absolute output path for generated `spec.md`       |
+| `targetPath`      | `string`  | Scoped analysis root (repo root or subdirectory)   |
+| `specExists`      | `boolean` | Whether `spec.md` already exists before generation |
+| `interactiveMode` | `"auto"`  | Prompt behavior: ask only when ambiguities exist   |
 
-**Validation**: `TARGET_PATH` must exist and be a directory. `SPEC_TEMPLATE`
-must exist. If `SPEC_EXISTS` is `"true"`, the agent must warn and require
-confirmation before overwriting.
+**Validation rules**
+
+- `targetPath` must exist and be readable.
+- If `specExists=true`, overwrite requires explicit confirmation.
 
 ---
 
 ### 2. AnalysisContext
 
-The accumulated knowledge from scanning the target project, built incrementally
-across analysis tiers.
+Collected discovery evidence and derived understanding.
 
-| Field                  | Type              | Description                                                            |
-| ---------------------- | ----------------- | ---------------------------------------------------------------------- |
-| `projectName`          | `string`          | Name extracted from manifest or directory name                         |
-| `projectDescription`   | `string \| null`  | Description from manifest or README intro                              |
-| `language`             | `string`          | Primary language/framework (e.g., "TypeScript", "Python")              |
-| `manifestType`         | `string \| null`  | Type of manifest found (e.g., "package.json", "pyproject.toml")        |
-| `manifestData`         | `ManifestData`    | Parsed metadata from manifest file                                     |
-| `readmeContent`        | `string \| null`  | Full content of README (truncated if >500 lines)                       |
-| `directoryTree`        | `DirectoryNode[]` | Scanned file tree (2-3 levels deep)                                    |
-| `entryPoints`          | `EntryPoint[]`    | Discovered entry points / public API surface                           |
-| `modules`              | `Module[]`        | Detected modules / packages / top-level directories                    |
-| `sampledFiles`         | `SampledFile[]`   | Representative source files read for pattern detection                 |
-| `detectedPatterns`     | `string[]`        | Architectural patterns found (e.g., "CLI app", "REST API", "monorepo") |
-| `assumptions`          | `Assumption[]`    | Reasonable defaults chosen when info insufficient                      |
-| `clarificationMarkers` | `string[]`        | Topics requiring user clarification (max 3)                            |
+| Field               | Type                    | Description                                 |
+| ------------------- | ----------------------- | ------------------------------------------- |
+| `projectMetadata`   | `ProjectMetadata`       | Name/description/runtime/dependencies       |
+| `directorySnapshot` | `DirectorySnapshot`     | Scanned tree summary + module boundaries    |
+| `apiSurface`        | `ApiSurfaceItem[]`      | Entry points, exports, commands, routes     |
+| `sampledSources`    | `SourceSample[]`        | Representative implementation evidence      |
+| `assumptions`       | `Assumption[]`          | Defaults used when evidence is insufficient |
+| `clarifications`    | `ClarificationMarker[]` | Unresolved ambiguities (max 3)              |
 
 ---
 
-### 3. ManifestData
+### 3. EvidenceItem
 
-Structured metadata extracted from a project manifest file.
+Traceability payload attached to every scenario/requirement.
 
-| Field             | Type                             | Description                  |
-| ----------------- | -------------------------------- | ---------------------------- |
-| `name`            | `string`                         | Package/project name         |
-| `version`         | `string \| null`                 | Version string               |
-| `description`     | `string \| null`                 | Package description          |
-| `scripts`         | `Record<string, string>`         | Build/test/dev scripts       |
-| `dependencies`    | `string[]`                       | Runtime dependency names     |
-| `devDependencies` | `string[]`                       | Dev dependency names         |
-| `entryPoint`      | `string \| null`                 | Main/bin entry point path    |
-| `engines`         | `Record<string, string> \| null` | Runtime version requirements |
+| Field         | Type        | Description                                            |
+| ------------- | ----------- | ------------------------------------------------------ | ------ | --------- | ----------------- |
+| `sourcePath`  | `string`    | Relative source/doc path used as evidence              |
+| `sourceKind`  | `"manifest" | "readme"                                               | "code" | "config"` | Evidence category |
+| `locator`     | `string`    | Symbol/section/command anchor within source            |
+| `excerptHash` | `string`    | Stable hash fingerprint of excerpt (no secret leakage) |
 
----
+**Validation rules**
 
-### 4. EntryPoint
-
-A user-facing interface discovered in the codebase.
-
-| Field         | Type                                          | Description                                                |
-| ------------- | --------------------------------------------- | ---------------------------------------------------------- |
-| `type`        | `"cli" \| "api" \| "ui" \| "lib" \| "script"` | Kind of entry point                                        |
-| `path`        | `string`                                      | File path relative to project root                         |
-| `name`        | `string`                                      | Command name, route prefix, component name, or export name |
-| `description` | `string \| null`                              | Inferred purpose from comments/naming                      |
+- Every generated User Story inference and FR item has >=1 `EvidenceItem`.
+- If no evidence can be attached, omit the inferred item.
 
 ---
 
-### 5. Module
+### 4. RedactedSnippet
 
-A logical grouping of source code within the project.
+Sanitized textual snippet safe for summaries/spec output.
 
-| Field       | Type             | Description                                     |
-| ----------- | ---------------- | ----------------------------------------------- |
-| `name`      | `string`         | Module/package/directory name                   |
-| `path`      | `string`         | Relative path from project root                 |
-| `fileCount` | `number`         | Number of source files in module                |
-| `purpose`   | `string \| null` | Inferred purpose from naming/structure          |
-| `entities`  | `string[]`       | Data models/domain objects found in this module |
+| Field            | Type     | Description                               |
+| ---------------- | -------- | ----------------------------------------- |
+| `rawDigest`      | `string` | Non-reversible digest of raw snippet      |
+| `redactedText`   | `string` | Snippet with secret-like values masked    |
+| `redactionCount` | `number` | Number of redaction substitutions applied |
 
----
+**Validation rules**
 
-### 6. SampledFile
-
-A source file selected for deeper analysis.
-
-| Field       | Type             | Description                         |
-| ----------- | ---------------- | ----------------------------------- |
-| `path`      | `string`         | Relative path from project root     |
-| `module`    | `string`         | Which module this file belongs to   |
-| `linesRead` | `number`         | How many lines were read (cap: 200) |
-| `exports`   | `string[]`       | Exported symbols found              |
-| `classes`   | `string[]`       | Class names defined                 |
-| `functions` | `string[]`       | Top-level function names            |
-| `purpose`   | `string \| null` | Inferred purpose                    |
+- Raw secrets (token/key/password/private key/connection string values) are not
+  emitted to terminal summary or `spec.md`.
 
 ---
 
-### 7. Assumption
+### 5. SpecDocument
 
-A reasonable default chosen when project documentation is insufficient.
+Final generated specification.
 
-| Field           | Type                          | Description                           |
-| --------------- | ----------------------------- | ------------------------------------- |
-| `topic`         | `string`                      | What aspect is being assumed          |
-| `chosenDefault` | `string`                      | The default value/behavior chosen     |
-| `rationale`     | `string`                      | Why this default is reasonable        |
-| `confidence`    | `"high" \| "medium" \| "low"` | Agent's confidence in this assumption |
-
----
-
-### 8. SpecDocument
-
-The output `spec.md` — follows the spec template structure.
-
-| Section                             | Required               | Source                                                          |
-| ----------------------------------- | ---------------------- | --------------------------------------------------------------- |
-| Header (name, branch, date, status) | Yes                    | `DiscoverSetup` + `AnalysisContext.projectName`                 |
-| User Scenarios & Testing            | Yes                    | Inferred from `EntryPoint[]` + `readmeContent`                  |
-| Edge Cases                          | Yes                    | Inferred from patterns + common failure modes                   |
-| Functional Requirements             | Yes                    | Derived from current capabilities (`EntryPoint[]` + `Module[]`) |
-| Key Entities                        | Yes (if data involved) | Extracted from `SampledFile[].classes` + data model patterns    |
-| Success Criteria                    | Yes                    | Derived from README goals, test coverage, performance hints     |
-| Assumptions                         | Yes (if any)           | Directly from `AnalysisContext.assumptions`                     |
+| Field                    | Type                      | Description                                    |
+| ------------------------ | ------------------------- | ---------------------------------------------- |
+| `header`                 | `SpecHeader`              | Feature name, branch, date, status, input      |
+| `userStories`            | `UserStory[]`             | Prioritized scenarios with tests and evidence  |
+| `functionalRequirements` | `FunctionalRequirement[]` | Current capabilities only; each with evidence  |
+| `keyEntities`            | `KeyEntity[]`             | Domain/config entities inferred from code/docs |
+| `successCriteria`        | `SuccessCriterion[]`      | Measurable outcomes tied to behavior           |
+| `assumptions`            | `Assumption[]`            | Stated defaults and rationale                  |
 
 ---
-
-## State Transitions
-
-```
-[Start]
-   │
-   ▼
-┌──────────────────────┐
-│   setup-discover.sh  │ → DiscoverSetup (JSON)
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Tier 1: Manifests   │ → ManifestData populated
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Tier 2: README/Docs │ → readmeContent populated
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Tier 3: Dir Tree    │ → directoryTree + modules populated
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Tier 4: Config      │ → detectedPatterns enriched
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Tier 5: API Surface │ → entryPoints populated
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Tier 6: Sampling    │ → sampledFiles + entities populated
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Spec Generation     │ → SpecDocument written to SPEC_FILE
-└──────────┬───────────┘
-           │
-           ▼
-[Done — report summary]
-```
 
 ## Relationships
 
+```text
+DiscoverRun -> AnalysisContext -> SpecDocument
+AnalysisContext -> EvidenceItem[*]
+AnalysisContext -> RedactedSnippet[*]
+SpecDocument.userStories[*] -> EvidenceItem[1..*]
+SpecDocument.functionalRequirements[*] -> EvidenceItem[1..*]
 ```
-DiscoverSetup ──uses──▶ AnalysisContext ──produces──▶ SpecDocument
-                              │
-                              ├── contains ──▶ ManifestData (0..1)
-                              ├── contains ──▶ EntryPoint[] (0..*)
-                              ├── contains ──▶ Module[] (0..*)
-                              ├── contains ──▶ SampledFile[] (0..*)
-                              └── contains ──▶ Assumption[] (0..*)
+
+## State Transitions
+
+```text
+Initialized
+   -> ContextCollected (manifests/docs/tree/API/samples)
+   -> EvidenceValidated (strict traceability gate)
+   -> RedactionApplied (secret-safe output gate)
+   -> SpecGenerated
+   -> ClarificationPrompted? (only when markers exist)
+   -> Completed
 ```

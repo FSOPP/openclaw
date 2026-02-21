@@ -1,15 +1,15 @@
 # Contracts: Spec from Project — `/speckit.discover`
 
-**Date**: 2026-02-20  
+**Date**: 2026-02-21  
 **Branch**: `001-spec-from-project`
 
 ## Overview
 
-The `/speckit.discover` feature has no REST/GraphQL API. Its "contracts" are:
+The `/speckit.discover` feature has no REST/GraphQL API. Its contracts are:
 
-1. **Shell script interface** — `setup-discover.sh` CLI contract (arguments, JSON output)
-2. **Agent prompt interface** — the prompt file that defines agent behavior
-3. **File I/O contract** — what the agent reads (project files) and writes (`spec.md`)
+1. **Shell script interface** — setup + path resolution contract
+2. **Agent execution interface** — phase flow and behavior constraints
+3. **Spec output contract** — generated section and evidence guarantees
 
 ---
 
@@ -85,8 +85,12 @@ The `speckit.discover` agent mode MUST:
 3. **Parse** JSON output for file paths and state
 4. **Check** `SPEC_EXISTS` — if `"true"`, warn user and ask for confirmation
 5. **Execute** tiered analysis (6 phases) on `TARGET_PATH`
-6. **Generate** `spec.md` at `SPEC_FILE` using spec template structure
-7. **Report** analysis summary (files read, modules found, sections filled)
+6. **Redact** secret-like values from snippets/status output before emission
+7. **Generate** `spec.md` at `SPEC_FILE` using spec template structure
+8. **Attach evidence** to every generated scenario and FR item
+9. **Omit** any scenario/FR item that lacks explicit evidence
+10. **Prompt** only when clarification markers exist; otherwise complete
+11. **Report** analysis summary (files read, modules found, clarification markers)
 
 ### Analysis Phases (ordered)
 
@@ -106,27 +110,38 @@ The `speckit.discover` agent mode MUST:
 - Maximum 3 `[NEEDS CLARIFICATION: ...]` markers
 - User stories prioritized (P1, P2, P3) with Given/When/Then scenarios
 - FRs describe current capabilities (what project does), not aspirations
-- Maximum 20 files read during analysis
+- Every generated scenario/FR includes explicit source evidence
+- Secret-like values are redacted from generated snippets/summaries
 
 ---
 
-## Contract 3: File I/O Interface
+## Contract 3: Spec Output Interface
+
+### Required Output Properties
+
+| Property            | Requirement                                                          |
+| ------------------- | -------------------------------------------------------------------- |
+| Mandatory sections  | Header, User Scenarios, Requirements, Success Criteria all populated |
+| Evidence strictness | Every scenario/FR references at least one source path + locator      |
+| Ambiguity markers   | Maximum 3 markers in generated output                                |
+| Secret safety       | No raw secret values in output text                                  |
+| Scope fidelity      | Scoped runs do not include unrelated module requirements             |
 
 ### Inputs (read-only)
 
 The agent reads the following files from `TARGET_PATH`:
 
-| File Pattern                                                        | Read Strategy                   | Required                        |
-| ------------------------------------------------------------------- | ------------------------------- | ------------------------------- |
-| `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml` | Full read                       | At least one manifest or README |
-| `README.md`, `README`, `README.rst`                                 | Full read (truncate >500 lines) | At least one manifest or README |
-| `tsconfig.json`, `.eslintrc*`, `Dockerfile`, CI configs             | Full read                       | No                              |
-| Directory tree                                                      | `list_dir` 2-3 levels           | Yes                             |
-| Entry point files (e.g., `src/index.ts`, `src/main.ts`)             | Exports/signatures only         | No                              |
-| Representative source files (2-3 per module)                        | First 100-200 lines             | No                              |
+| File Pattern                                                        | Read Strategy                              | Required                        |
+| ------------------------------------------------------------------- | ------------------------------------------ | ------------------------------- |
+| `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml` | Full read                                  | At least one manifest or README |
+| `README.md`, `README`, `README.rst`                                 | Full read                                  | At least one manifest or README |
+| `tsconfig.json`, `.eslintrc*`, `Dockerfile`, CI configs             | Full read                                  | No                              |
+| Directory tree                                                      | `list_dir` 2-3 levels                      | Yes                             |
+| Entry point files (e.g., `src/index.ts`, `src/main.ts`)             | Exports/signatures + command/route mapping | No                              |
+| Representative source files (per module)                            | Targeted sampled reads                     | No                              |
 
-**Invariant**: If `TARGET_PATH` has no manifest and no README, the system MUST
-produce an error message and NOT generate a spec.
+**Invariant**: If `TARGET_PATH` has no meaningful analyzable content, return a
+clear error and do not emit a vacuous spec.
 
 ### Outputs (created/modified)
 

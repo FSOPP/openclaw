@@ -110,6 +110,8 @@ reflects the user's corrections.
   manifest files, and note the limitation in the Assumptions section.
 - What happens when the project already has a `spec.md`? The system MUST warn
   the user and require explicit confirmation before overwriting.
+- What happens when analyzed files contain credentials or tokens? The system
+  MUST redact detected secret values in generated content and analysis logs.
 
 ## Requirements _(mandatory)_
 
@@ -149,6 +151,20 @@ reflects the user's corrections.
   the project's spinner utilities. On completion, print a summary of what was
   analyzed (files read, modules found, clarification markers placed). On
   failure, print the specific phase that failed and the reason.
+- **FR-013**: System MUST redact likely secrets (API keys, access tokens,
+  passwords, private keys, and connection strings) from extracted snippets,
+  status output, and the generated `spec.md`; raw secret values MUST NOT appear
+  in output artifacts.
+- **FR-014**: System MUST treat all readable files within the scoped target as
+  eligible for analysis by default, skipping only unreadable files; phase-level
+  prioritization/sampling may still be used for deeper semantic extraction.
+- **FR-015**: System MUST attach explicit source evidence for every generated
+  user scenario and functional requirement (e.g., file paths and relevant
+  symbols/sections); items lacking source evidence MUST be omitted from the
+  generated spec.
+- **FR-016**: System MUST run non-interactively by default and only initiate
+  interactive clarification prompts when ambiguity markers are present;
+  otherwise it completes silently with a completion summary.
 
 ### Key Entities
 
@@ -182,6 +198,9 @@ reflects the user's corrections.
   projects that have a README.
 - **SC-005**: Scoped analysis (subdirectory) produces a spec that contains
   no requirements or scenarios from unrelated parts of the monorepo.
+- **SC-006**: 100% of generated user scenarios and functional requirements
+  include explicit source evidence references; no unsupported inferred item is
+  emitted.
 
 ## Assumptions
 
@@ -206,6 +225,11 @@ reflects the user's corrections.
   (`.github/prompts/speckit.discover.prompt.md`) and execution flow, but
   outputs to the same `specs/<branch>/spec.md` location used by
   `/speckit.specify`.
+- Secret handling uses best-effort pattern/heuristic detection and redaction to
+  prevent direct leakage of sensitive values in generated artifacts.
+- File selection defaults to analyzing all readable files in scope; no
+  generated/vendor/binary denylist is applied unless introduced by future
+  requirements.
 
 ## Clarifications
 
@@ -216,3 +240,10 @@ reflects the user's corrections.
 - Q: Which project types/languages are in-scope for rich manifest parsing? → A: Node.js/TypeScript only (`package.json`/`tsconfig.json`). Other languages get best-effort analysis via README + file structure.
 - Q: How should users invoke this feature? → A: Dedicated command `/speckit.discover` with its own prompt file and execution flow, outputting to the same spec location as `/speckit.specify`.
 - Q: What feedback does the user get during analysis? → A: Structured progress logging — print each analysis phase with spinner, completion summary of files/modules analyzed, and phase-specific error messages on failure.
+
+### Session 2026-02-21
+
+- Q: How should the system handle secrets found during project analysis? → A: Redact likely secrets (tokens/keys/passwords) in extracted snippets and never copy raw secret values into `spec.md`.
+- Q: What default file inclusion policy should analysis use? → A: Analyze all readable files by default and skip only unreadable files.
+- Q: How strict should evidence traceability be for generated scenarios/requirements? → A: Require strict evidence for every item; omit items without explicit source proof.
+- Q: When should interactive refinement prompts run? → A: Prompt only when ambiguities are detected; otherwise complete without interactive prompts.
