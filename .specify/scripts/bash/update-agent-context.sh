@@ -76,6 +76,8 @@ SHAI_FILE="$REPO_ROOT/SHAI.md"
 Q_FILE="$REPO_ROOT/AGENTS.md"
 AGY_FILE="$REPO_ROOT/.agent/rules/specify-rules.md"
 BOB_FILE="$REPO_ROOT/AGENTS.md"
+DISCOVER_PROMPT_FILE="$REPO_ROOT/.github/prompts/speckit.discover.prompt.md"
+DISCOVER_AGENT_FILE="$REPO_ROOT/.github/agents/speckit.discover.agent.md"
 
 # Template file
 TEMPLATE_FILE="$REPO_ROOT/.specify/templates/agent-file-template.md"
@@ -104,6 +106,23 @@ log_error() {
 
 log_warning() {
     echo "WARNING: $1" >&2
+}
+
+ensure_discover_mode_registration() {
+    if [[ -f "$DISCOVER_PROMPT_FILE" ]] && [[ -f "$DISCOVER_AGENT_FILE" ]]; then
+        log_info "Discover mode registration found (prompt + agent files present)"
+        return 0
+    fi
+
+    if [[ -f "$DISCOVER_PROMPT_FILE" ]] || [[ -f "$DISCOVER_AGENT_FILE" ]]; then
+        log_warning "Discover mode registration appears partial; expected both:"
+        log_warning "  - $DISCOVER_PROMPT_FILE"
+        log_warning "  - $DISCOVER_AGENT_FILE"
+        return 0
+    fi
+
+    log_warning "Discover mode registration not found; expected files are missing"
+    return 0
 }
 
 # Cleanup function for temporary files
@@ -762,6 +781,7 @@ print_summary() {
 main() {
     # Validate environment before proceeding
     validate_environment
+    ensure_discover_mode_registration
     
     log_info "=== Updating agent context files for feature $CURRENT_BRANCH ==="
     
@@ -804,4 +824,3 @@ main() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
 fi
-

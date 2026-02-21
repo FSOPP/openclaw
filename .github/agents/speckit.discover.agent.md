@@ -226,6 +226,12 @@ may pass a target path as `$ARGUMENTS` (defaults to repo root).
    - Include all assumptions gathered during analysis
    - Each with topic, chosen default, and rationale
 
+   **Evidence & Redaction Requirements**:
+   - Attach explicit source evidence (file path + locator) to every generated user scenario and functional requirement.
+   - If evidence cannot be attached for an inferred scenario/requirement, omit it from the output.
+   - Redact likely secrets in snippets and status output; raw secret values never appear in output artifacts.
+   - Ensure the generated `spec.md` does not contain raw API keys, access tokens, passwords, private keys, or connection strings.
+
 3. **Quality Validation** — before writing, check the generated spec:
    - [ ] All mandatory sections populated (User Scenarios, Requirements, Success Criteria)
    - [ ] No raw template placeholders remaining (`[FEATURE NAME]`, `[DATE]`, `[Brief Title]`, etc.)
@@ -234,6 +240,9 @@ may pass a target path as `$ARGUMENTS` (defaults to repo root).
    - [ ] All acceptance scenarios use Given/When/Then format
    - [ ] Success criteria contain measurable language
    - [ ] FRs describe current capabilities, not wishlists
+   - [ ] Every user scenario and functional requirement has explicit source evidence
+   - [ ] Items lacking source evidence are omitted from the generated output
+   - [ ] Secret-like values are redacted in snippets, status output, and generated `spec.md`
    - If any check fails, fix the issue before writing.
 
 4. Write the completed spec to `SPEC_FILE`.
